@@ -3,15 +3,12 @@ import * as vscode from "vscode";
 /**
  * CodelensProvider
  */
-export class CodelensProvider implements vscode.CodeLensProvider {
-  private static instance: CodelensProvider;
+export class AnnotationProvider implements vscode.Disposable {
+  protected _disposable?: vscode.Disposable;
 
-  private _onDidChangeCodeLenses: vscode.EventEmitter<void> =
-    new vscode.EventEmitter<void>();
-  public onDidChangeCodeLenses: vscode.Event<void> =
-    this._onDidChangeCodeLenses.event;
+  private static instance: AnnotationProvider;
 
-  private codeLenses: vscode.CodeLens[] = [];
+  private decorations: vscode.DecorationOptions[] = [];
   private regex: RegExp;
   private langagesID = ["css", "scss"];
   private feedback = {
@@ -23,60 +20,117 @@ export class CodelensProvider implements vscode.CodeLensProvider {
     },
   };
 
+  private annotationDecoration = vscode.window.createTextEditorDecorationType({
+    after: {
+      margin: "0 0 0 1.5em",
+      textDecoration: "none",
+    },
+    rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
+  });
+
   constructor() {
+    this._disposable = vscode.Disposable.from(
+      vscode.window.onDidChangeActiveTextEditor(this.onActiveTextEditor, this),
+      vscode.window.onDidChangeWindowState(this.onWindowsState, this)
+    );
+
     this.regex = /([-a-zA-Z0-9 ]*:[#a-zA-Z0-9\- :]*)/g;
     vscode.workspace.onDidChangeConfiguration((ctx) => {
       if (ctx.affectsConfiguration("caniuse.enableCodeLens")) {
-        this._onDidChangeCodeLenses.fire();
       }
-      this._onDidChangeCodeLenses.fire();
     });
   }
 
-  public static getInstance(): CodelensProvider {
-    if (!CodelensProvider.instance) {
-      CodelensProvider.instance = new CodelensProvider();
-    }
-    return CodelensProvider.instance;
+  private onWindowsState(e: vscode.WindowState) {
+    this.onActiveTextEditor(vscode.window.activeTextEditor);
   }
 
-  public provideCodeLenses(
-    document: vscode.TextDocument,
-    token: vscode.CancellationToken
-  ): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
-    console.log(
+  public static getInstance(): AnnotationProvider {
+    if (!AnnotationProvider.instance) {
+      AnnotationProvider.instance = new AnnotationProvider();
+    }
+    return AnnotationProvider.instance;
+  }
+
+  private onActiveTextEditor(e: vscode.TextEditor | undefined) {
+    this.clearAnnotations();
+    if (
+      (e?.document.languageId.includes("css") ||
+        e?.document.languageId.includes("scss")) &&
       vscode.workspace.getConfiguration().get("caniuse.enableCodeLens")
-    );
-    if (vscode.workspace.getConfiguration().get("caniuse.enableCodeLens")) {
-      this.codeLenses = [];
+    ) {
+      this.decorations = [];
       const regex = new RegExp(this.regex);
-      const text = document.getText();
+      const text = e!.document.getText();
       let matches;
       while ((matches = regex.exec(text)) !== null) {
-        const line = document.lineAt(document.positionAt(matches.index).line);
+        const line = e!.document.lineAt(
+          e!.document.positionAt(matches.index).line
+        );
         const indexOf = line.text.indexOf(matches[0]);
         const position = new vscode.Position(line.lineNumber, indexOf);
-        const range = document.getWordRangeAtPosition(
-          position,
-          new RegExp(this.regex)
-        );
-        console.log(line);
-
+        const range = line.range;
         if (range) {
-          this.codeLenses.push(
-            new vscode.CodeLens(range, {
-              title: this.feedback.title.experimental,
-              tooltip: "Tooltip provided by sample extension",
-              command: "codelens-sample.codelensAction",
-              arguments: ["Argument 1", false],
-            })
-          );
+          const decoration: vscode.DecorationOptions = {
+            renderOptions: {
+              after: {
+                backgroundColor: new vscode.ThemeColor(
+                  "extension.cssrem.trailingLineBackgroundColor"
+                ),
+                color: new vscode.ThemeColor(
+                  "extension.cssrem.trailingLineForegroundColor"
+                ),
+                contentText: line.text + this.feedback.title.experimental,
+                fontWeight: "normal",
+                fontStyle: "normal",
+                textDecoration: "none",
+              },
+            },
+            range: range,
+          };
+
+          this.decorations.push(decoration);
         }
       }
-      return this.codeLenses;
+
+      vscode.window.activeTextEditor?.setDecorations(
+        this.annotationDecoration,
+        this.decorations
+      );
     }
-    return [];
   }
+
+  // public providerAnnotations(
+  //   document: vscode.TextDocument,
+  //   token: vscode.CancellationToken
+  // ): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
+  //   if (vscode.workspace.getConfiguration().get("caniuse.enableCodeLens")) {
+  //     this.codeLenses = [];
+  //     const regex = new RegExp(this.regex);
+  //     const text = document.getText();
+  //     let matches;
+  //     while ((matches = regex.exec(text)) !== null) {
+  //       const line = document.lineAt(document.positionAt(matches.index).line);
+  //       const indexOf = line.text.indexOf(matches[0]);
+  //       const position = new vscode.Position(line.lineNumber, indexOf);
+  //       const range = document.getWordRangeAtPosition(
+  //         position,
+  //         new RegExp(this.regex)
+  //       );
+  //       if (range) {
+  //         this.codeLenses.push(
+  //           new vscode.CodeLens(range, {
+  //             title: this.feedback.title.experimental,
+  //             tooltip: "Tooltip provided by sample extension",
+  //             command: "",
+  //           })
+  //         );
+  //       }
+  //     }
+  //     return this.codeLenses;
+  //   }
+  //   return [];
+  // }
 
   public resolveCodeLens(
     codeLens: vscode.CodeLens,
@@ -86,5 +140,17 @@ export class CodelensProvider implements vscode.CodeLensProvider {
       return codeLens;
     }
     return null;
+  }
+
+  private clearAnnotations() {
+    vscode.window.activeTextEditor?.setDecorations(
+      this.annotationDecoration,
+      []
+    );
+  }
+
+  dispose() {
+    this.clearAnnotations();
+    this._disposable!.dispose();
   }
 }
