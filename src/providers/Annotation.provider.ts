@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { REGEX } from "../models/Regex";
 
 /**
  * CodelensProvider
@@ -9,7 +10,7 @@ export class AnnotationProvider implements vscode.Disposable {
   private static instance: AnnotationProvider;
 
   private decorations: vscode.DecorationOptions[] = [];
-  private regex: RegExp;
+  private regex: RegExp = REGEX.KeyValueRegex;
   private langagesID = ["css", "scss"];
   private feedback = {
     title: {
@@ -34,7 +35,6 @@ export class AnnotationProvider implements vscode.Disposable {
       vscode.window.onDidChangeWindowState(this.onWindowsState, this)
     );
 
-    this.regex = /([-a-zA-Z0-9 ]*:[#a-zA-Z0-9\- :]*)/g;
     vscode.workspace.onDidChangeConfiguration((ctx) => {
       if (ctx.affectsConfiguration("caniuse.enableCodeLens")) {
       }
@@ -98,48 +98,6 @@ export class AnnotationProvider implements vscode.Disposable {
         this.decorations
       );
     }
-  }
-
-  // public providerAnnotations(
-  //   document: vscode.TextDocument,
-  //   token: vscode.CancellationToken
-  // ): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
-  //   if (vscode.workspace.getConfiguration().get("caniuse.enableCodeLens")) {
-  //     this.codeLenses = [];
-  //     const regex = new RegExp(this.regex);
-  //     const text = document.getText();
-  //     let matches;
-  //     while ((matches = regex.exec(text)) !== null) {
-  //       const line = document.lineAt(document.positionAt(matches.index).line);
-  //       const indexOf = line.text.indexOf(matches[0]);
-  //       const position = new vscode.Position(line.lineNumber, indexOf);
-  //       const range = document.getWordRangeAtPosition(
-  //         position,
-  //         new RegExp(this.regex)
-  //       );
-  //       if (range) {
-  //         this.codeLenses.push(
-  //           new vscode.CodeLens(range, {
-  //             title: this.feedback.title.experimental,
-  //             tooltip: "Tooltip provided by sample extension",
-  //             command: "",
-  //           })
-  //         );
-  //       }
-  //     }
-  //     return this.codeLenses;
-  //   }
-  //   return [];
-  // }
-
-  public resolveCodeLens(
-    codeLens: vscode.CodeLens,
-    token: vscode.CancellationToken
-  ) {
-    if (vscode.workspace.getConfiguration().get("caniuse.enableCodeLens")) {
-      return codeLens;
-    }
-    return null;
   }
 
   private clearAnnotations() {
