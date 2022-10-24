@@ -4,6 +4,13 @@ import * as vscode from "vscode";
  * CodelensProvider
  */
 export class CodelensProvider implements vscode.CodeLensProvider {
+  private static instance: CodelensProvider;
+
+  private _onDidChangeCodeLenses: vscode.EventEmitter<void> =
+    new vscode.EventEmitter<void>();
+  public onDidChangeCodeLenses: vscode.Event<void> =
+    this._onDidChangeCodeLenses.event;
+
   private codeLenses: vscode.CodeLens[] = [];
   private regex: RegExp;
   private langagesID = ["css", "scss"];
@@ -15,31 +22,36 @@ export class CodelensProvider implements vscode.CodeLensProvider {
       experimental: "⚗️",
     },
   };
-  private _onDidChangeCodeLenses: vscode.EventEmitter<void> =
-    new vscode.EventEmitter<void>();
-  public readonly onDidChangeCodeLenses: vscode.Event<void> =
-    this._onDidChangeCodeLenses.event;
 
   constructor() {
-    this.regex = /(.+)/g;
-
-    vscode.workspace.onDidChangeConfiguration((_) => {
+    this.regex = /([-a-zA-Z0-9 ]*:[#a-zA-Z0-9\- :]*)/g;
+    vscode.workspace.onDidChangeConfiguration((ctx) => {
+      if (ctx.affectsConfiguration("caniuse.enableCodeLens")) {
+        this._onDidChangeCodeLenses.fire();
+      }
       this._onDidChangeCodeLenses.fire();
     });
+  }
+
+  public static getInstance(): CodelensProvider {
+    if (!CodelensProvider.instance) {
+      CodelensProvider.instance = new CodelensProvider();
+    }
+    return CodelensProvider.instance;
   }
 
   public provideCodeLenses(
     document: vscode.TextDocument,
     token: vscode.CancellationToken
   ): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
-    if (
-      vscode.workspace.getConfiguration("caniuse").get("enableCodeLens", true)
-    ) {
+    console.log(
+      vscode.workspace.getConfiguration().get("caniuse.enableCodeLens")
+    );
+    if (vscode.workspace.getConfiguration().get("caniuse.enableCodeLens")) {
       this.codeLenses = [];
       const regex = new RegExp(this.regex);
       const text = document.getText();
       let matches;
-      console.log(document);
       while ((matches = regex.exec(text)) !== null) {
         const line = document.lineAt(document.positionAt(matches.index).line);
         const indexOf = line.text.indexOf(matches[0]);
@@ -48,8 +60,17 @@ export class CodelensProvider implements vscode.CodeLensProvider {
           position,
           new RegExp(this.regex)
         );
+        console.log(line);
+
         if (range) {
-          this.codeLenses.push(new vscode.CodeLens(range));
+          this.codeLenses.push(
+            new vscode.CodeLens(range, {
+              title: this.feedback.title.experimental,
+              tooltip: "Tooltip provided by sample extension",
+              command: "codelens-sample.codelensAction",
+              arguments: ["Argument 1", false],
+            })
+          );
         }
       }
       return this.codeLenses;
@@ -61,15 +82,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
     codeLens: vscode.CodeLens,
     token: vscode.CancellationToken
   ) {
-    if (
-      vscode.workspace.getConfiguration("caniuse").get("enableCodeLens", true)
-    ) {
-      codeLens.command = {
-        title: this.feedback.title.ok,
-        tooltip: "Tooltip provided by sample extension",
-        command: "codelens-sample.codelensAction",
-        arguments: ["Argument 1", false],
-      };
+    if (vscode.workspace.getConfiguration().get("caniuse.enableCodeLens")) {
       return codeLens;
     }
     return null;

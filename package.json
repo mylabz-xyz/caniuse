@@ -10,14 +10,30 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:caniuse.helloWorld"
+    "*"
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Can I Use",
+      "properties": {
+        "caniuse.enableCodeLens": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable CodeLens for CSS/SCSS Files"
+        }
+      }
+    },
     "commands": [
       {
-        "command": "caniuse.helloWorld",
-        "title": "Hello World"
+        "command": "caniuse.enableCodeLens",
+        "title": "Enable code lens",
+        "category": "Can I Use"
+      },
+      {
+        "command": "caniuse.disableCodeLens",
+        "title": "Disable code lens",
+        "category": "Can I Use"
       }
     ]
   },
