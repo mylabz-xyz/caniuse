@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { LANGAGES } from "../models/Langages";
 import { REGEX } from "../models/Regex";
 
 /**
@@ -11,7 +12,7 @@ export class AnnotationProvider implements vscode.Disposable {
 
   private decorations: vscode.DecorationOptions[] = [];
   private regex: RegExp = REGEX.KeyValueRegex;
-  private langagesID = ["css", "scss"];
+  private supportedLangages = LANGAGES.SUPPORTED;
   private feedback = {
     title: {
       ok: "✅",
@@ -29,10 +30,16 @@ export class AnnotationProvider implements vscode.Disposable {
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
   });
 
+  private state = {
+    isAnnotationsShow: { state: false, interval: null },
+    isWaittingForChange: { state: false, interval: null },
+  };
+
   constructor() {
     this._disposable = vscode.Disposable.from(
       vscode.window.onDidChangeActiveTextEditor(this.onActiveTextEditor, this),
-      vscode.window.onDidChangeWindowState(this.onWindowsState, this)
+      vscode.window.onDidChangeWindowState(this.onWindowsState, this),
+      vscode.workspace.onDidChangeTextDocument(this.onWorkspaceState, this)
     );
 
     vscode.workspace.onDidChangeConfiguration((ctx) => {
@@ -45,6 +52,15 @@ export class AnnotationProvider implements vscode.Disposable {
     this.onActiveTextEditor(vscode.window.activeTextEditor);
   }
 
+  private onWorkspaceState(e: vscode.TextDocumentChangeEvent) {
+    this.clearAnnotations();
+  }
+
+  private clearIntervalListeners() {
+    clearInterval(this.state.isAnnotationsShow.interval as never);
+    clearInterval(this.state.isWaittingForChange.interval as never);
+  }
+
   public static getInstance(): AnnotationProvider {
     if (!AnnotationProvider.instance) {
       AnnotationProvider.instance = new AnnotationProvider();
@@ -55,11 +71,9 @@ export class AnnotationProvider implements vscode.Disposable {
   private onActiveTextEditor(e: vscode.TextEditor | undefined) {
     this.clearAnnotations();
     if (
-      (e?.document.languageId.includes("css") ||
-        e?.document.languageId.includes("scss")) &&
+      this.supportedLangages.includes(e!.document.languageId) &&
       vscode.workspace.getConfiguration().get("caniuse.enableCodeLens")
     ) {
-      this.decorations = [];
       const regex = new RegExp(this.regex);
       const text = e!.document.getText();
       let matches;
@@ -92,7 +106,6 @@ export class AnnotationProvider implements vscode.Disposable {
           this.decorations.push(decoration);
         }
       }
-
       vscode.window.activeTextEditor?.setDecorations(
         this.annotationDecoration,
         this.decorations
@@ -101,9 +114,11 @@ export class AnnotationProvider implements vscode.Disposable {
   }
 
   private clearAnnotations() {
+    this.decorations = [];
+
     vscode.window.activeTextEditor?.setDecorations(
       this.annotationDecoration,
-      []
+      this.decorations
     );
   }
 

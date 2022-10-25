@@ -1,6 +1,5 @@
 import { CommandsProvider } from "../providers";
 import { ContextProvider } from "../providers/Context.provider";
-import { CodelensService } from "./Codelens.service";
 import * as vscode from "vscode";
 
 export class CommandsService {
@@ -8,7 +7,6 @@ export class CommandsService {
 
   private commandsProvider = CommandsProvider.getInstance();
   private contextProvider = ContextProvider.getInstance();
-  private codeLensService = CodelensService.getInstance();
 
   public static getInstance(): CommandsService {
     if (!CommandsService.instance) {
