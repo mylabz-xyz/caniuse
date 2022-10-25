@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { AnnotationProvider } from "../providers";
+import { HoverProvider } from "../providers/Hover.provider";
 
 /**
  * CodelensService
@@ -16,7 +17,8 @@ export class CodelensService {
   }
 
   public register() {
-    new AnnotationProvider();
+    // new AnnotationProvider();
+    new HoverProvider();
   }
 
   public unregister() {}
